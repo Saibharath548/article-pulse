@@ -6,6 +6,7 @@ import '../services/multi_provider_search_service.dart';
 import '../services/providers/crossref_search_provider.dart';
 import '../services/providers/guardian_search_provider.dart';
 import '../services/providers/hn_algolia_provider.dart';
+import '../services/providers/google_news_rss_provider.dart';
 import '../services/providers/search_provider_interface.dart';
 import '../services/rss_feed_service.dart';
 import '../services/secure_storage_service.dart';
@@ -223,6 +224,7 @@ class ArticleRepository {
       final searchService = MultiProviderSearchService(
         providers: [
           _algoliaProvider,
+          GoogleNewsRssSearchProvider(),
           _crossrefProvider,
           _guardianProvider,
         ],
