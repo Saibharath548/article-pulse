@@ -100,7 +100,7 @@ class MultiProviderSearchService {
     try {
       final uri = Uri.parse(article.url.trim());
       if (uri.hasAuthority) {
-        final host = uri.host.toLowerCase().replaceFirst(RegExp(r'^www\\.'), '');
+        final host = uri.host.toLowerCase().replaceFirst(RegExp(r'^www\.'), '');
         final path = uri.path.replaceAll(RegExp(r'/+$'), '');
         final ignored = {'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
           'utm_content', 'fbclid', 'gclid', 'ref', 'source'};
@@ -129,7 +129,7 @@ class MultiProviderSearchService {
 
     final title = article.title.toLowerCase();
     final description = article.description.toLowerCase();
-    final tokens = query.split(RegExp(r'\\s+')).where((token) => token.length > 1).toSet();
+    final tokens = query.split(RegExp(r'\s+')).where((token) => token.length > 1).toSet();
     var score = 0;
     if (title == query) score += 100;
     if (title.contains(query)) score += 60;
