@@ -28,11 +28,11 @@ class GoogleNewsRssSearchProvider implements ArticleSearchProvider {
     try {
       var query = filter.query.trim();
       if (filter.category != null && filter.category != 'All') {
-        query = query.isEmpty ? filter.category! : '$query \${filter.category}';
+        query = query.isEmpty ? filter.category! : '$query ${filter.category}';
       }
-      if (filter.fromDate != null) query += ' after:\${_date(filter.fromDate!)}';
+      if (filter.fromDate != null) query += ' after:${_date(filter.fromDate!)}';
       if (filter.toDate != null) {
-        query += ' before:\${_date(filter.toDate!.add(const Duration(days: 1)))}';
+        query += ' before:${_date(filter.toDate!.add(const Duration(days: 1)))}';
       }
       if (query.trim().isEmpty) {
         return ArticleSearchResult.empty(
@@ -54,8 +54,8 @@ class GoogleNewsRssSearchProvider implements ArticleSearchProvider {
       if (response.statusCode != 200) {
         return ArticleSearchResult.empty(
           providerName: name,
-          coverageNotice: 'Google News RSS returned HTTP \${response.statusCode}.',
-          errorMessage: 'HTTP \${response.statusCode}',
+          coverageNotice: 'Google News RSS returned HTTP ${response.statusCode}.',
+          errorMessage: 'HTTP ${response.statusCode}',
         );
       }
 
@@ -114,7 +114,7 @@ class GoogleNewsRssSearchProvider implements ArticleSearchProvider {
   }
 
   String _date(DateTime date) =>
-      '\${date.year}-\${date.month.toString().padLeft(2, '0')}-\${date.day.toString().padLeft(2, '0')}';
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   DateTime? _parseRssDate(String value) {
     if (value.isEmpty) return null;
