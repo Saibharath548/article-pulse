@@ -2,6 +2,7 @@ import 'dart:math';
 import '../models/article.dart';
 import '../models/category.dart';
 import '../services/database_service.dart';
+import '../services/multi_provider_search_service.dart';
 import '../services/providers/crossref_search_provider.dart';
 import '../services/providers/guardian_search_provider.dart';
 import '../services/providers/hn_algolia_provider.dart';
@@ -191,62 +192,75 @@ class ArticleRepository {
     }
   }
 
-  /// Dispatches search to the most appropriate provider based on category and credentials.
-  /// Strictly enforces 2+ years historical search capability.
+  /// Searches all free archives by default, while preserving explicit provider selection.
+  /// Results are merged, deduplicated, ranked, and cached without changing existing screens.
   Future<ArticleSearchResult> searchArticles(ArticleSearchFilter filter, {String? preferredProviderName}) async {
-    ArticleSearchProvider selectedProvider;
-
     final hasGuardianKey = await _secureStorage.hasGuardianApiKey();
 
-    if (preferredProviderName == _guardianProvider.name) {
-      selectedProvider = _guardianProvider;
-    } else if (preferredProviderName == _algoliaProvider.name) {
-      selectedProvider = _algoliaProvider;
-    } else if (preferredProviderName == _crossrefProvider.name) {
-      selectedProvider = _crossrefProvider;
-    } else {
-      // Dynamic routing based on category
-      final catHint = filter.category != null
-          ? ArticleCategory.byName(filter.category!).defaultProviderHint
-          : 'algolia';
+    // Keep the existing provider selector behavior for users who intentionally choose one source.
+    if (preferredProviderName != null) {
+      final ArticleSearchProvider? selectedProvider = switch (preferredProviderName) {
+        'The Guardian' => _guardianProvider,
+        'Hacker News Search (Algolia)' => _algoliaProvider,
+        'Crossref Open Works' => _crossrefProvider,
+        _ => null,
+      };
 
-      if (catHint == 'guardian' && hasGuardianKey) {
-        selectedProvider = _guardianProvider;
-      } else if (catHint == 'crossref') {
-        selectedProvider = _crossrefProvider;
-      } else {
-        selectedProvider = _algoliaProvider;
+      if (selectedProvider != null) {
+        try {
+          final result = await selectedProvider.search(filter);
+          if (result.articles.isNotEmpty) {
+            await _dbService.saveArticles(result.articles);
+          }
+          return result;
+        } catch (e) {
+          return _offlineSearchFallback(filter, e);
+        }
       }
     }
 
     try {
-      final result = await selectedProvider.search(filter);
+      final searchService = MultiProviderSearchService(
+        providers: [
+          _algoliaProvider,
+          _crossrefProvider,
+          _guardianProvider,
+        ],
+      );
+      final result = await searchService.search(
+        filter,
+        includeGuardian: hasGuardianKey,
+      );
 
-      // Cache articles in local database
       if (result.articles.isNotEmpty) {
         await _dbService.saveArticles(result.articles);
       }
-
       return result;
     } catch (e) {
-      // Offline fallback: Search local cache
-      final cached = await _dbService.getCachedArticles(
-        category: filter.category,
-        searchQuery: filter.query,
-        limit: filter.pageSize,
-        offset: (filter.page - 1) * filter.pageSize,
-        orderByNewest: filter.sortByNewest,
-      );
-
-      return ArticleSearchResult(
-        articles: cached,
-        totalResults: cached.length,
-        hasMore: false,
-        providerName: 'Offline Local Cache',
-        coverageNotice: 'Offline Mode: Displaying matching articles saved from previous discovery sessions.',
-        errorMessage: 'Device offline or search failed: ${e.toString()}',
-      );
+      return _offlineSearchFallback(filter, e);
     }
+  }
+
+  Future<ArticleSearchResult> _offlineSearchFallback(
+    ArticleSearchFilter filter,
+    Object error,
+  ) async {
+    final cached = await _dbService.getCachedArticles(
+      category: filter.category,
+      searchQuery: filter.query,
+      limit: filter.pageSize,
+      offset: (filter.page - 1) * filter.pageSize,
+      orderByNewest: filter.sortByNewest,
+    );
+
+    return ArticleSearchResult(
+      articles: cached,
+      totalResults: cached.length,
+      hasMore: false,
+      providerName: 'Offline Local Cache',
+      coverageNotice: 'Offline Mode: Displaying matching articles saved from previous discovery sessions.',
+      errorMessage: 'Search failed; showing local results: $error',
+    );
   }
 
   /// Fetches articles for a specific category browser view.
