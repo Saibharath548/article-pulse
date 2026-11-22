@@ -12,7 +12,7 @@ Article Pulse helps you discover, search, and explore high-quality informative a
 - **Anti-Repetition Engine**: Local SQLite impression tracking records viewed articles and filters them out of recommendations for 48 hours.
 - **11 Browseable Categories**: Game Development, Technology, Science, Psychology, Government and Politics, Society and Social Issues, History, Business and Economics, Artificial Intelligence, Environment, and General Knowledge.
 - **Dedicated Live Articles Stream**: Real-time articles retrieved from open feeds, sorted newest first, clearly distinguishing between *Original Publication Date* and *Discovered Date*.
-- **2+ Years Historical Search**: Deep archive discovery (2024 to 2026+) powered by dynamic multi-provider routing (Hacker News Algolia, Crossref Open Works, and optional The Guardian Open Platform).
+- **Multi-Source Historical Search**: Searches Google News RSS for broad publisher discovery, Hacker News Algolia for technology and startup coverage, and Crossref for scholarly publications. The Guardian archive is included when a free API key is configured. Results are merged, deduplicated, relevance-ranked, and paginated across sources. Coverage depends on each provider's index and date filters; this is not a complete web-wide archive.
 - **Offline Storage & Bookmarks**: SQLite database for offline reading of article metadata, summaries, publisher attribution, and reading history.
 - **Copyright & Attribution Integrity**: Full publisher attributions preserved. Original articles open directly in the device's external browser. No copyrighted article bodies are scraped.
 - **Zero Paid Dependencies**: 100% free operation with no mandatory API keys or commercial AI subscriptions.
@@ -23,11 +23,11 @@ Article Pulse helps you discover, search, and explore high-quality informative a
 
 This repository includes a continuous integration and build workflow in [`.github/workflows/build-apk.yml`](.github/workflows/build-apk.yml).
 
-Every commit to `main` (and manual `workflow_dispatch` trigger) runs:
+Every commit to `main` or a `feature/**` branch (and manual `workflow_dispatch` trigger) runs:
 1. Flutter & Java 17 setup on `ubuntu-latest`.
 2. `flutter pub get`
 3. `flutter analyze` (Zero lint / syntax errors)
-4. `flutter test` (10/10 automated tests passing)
+4. `flutter test` (automated unit and integration tests)
 5. `flutter build apk --release`
 6. Uploads the release APK as a downloadable artifact `article-pulse-release-apk`.
 
