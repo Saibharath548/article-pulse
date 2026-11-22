@@ -16,34 +16,33 @@ class MultiProviderSearchService {
         .where((provider) => includeGuardian || provider.name != 'The Guardian')
         .toList();
 
-    final settled = await Future.wait(
-      activeProviders.map((provider) async {
-        try {
-          return await provider.search(filter).timeout(const Duration(seconds: 18));
-        } catch (error) {
-          return ArticleSearchResult.empty(
-            providerName: provider.name,
-            coverageNotice: '${provider.name} could not be reached for this search.',
-            errorMessage: error.toString(),
-          );
-        }
-      }),
+    // Fetch enough provider pages to fill the requested global page after merging.
+    // Each provider is paged sequentially so The Guardian's 1-request/second limit is respected.
+    final requestedEnd = filter.page * filter.pageSize;
+    final providerPageCount = (requestedEnd / 50).ceil().clamp(1, 100).toInt();
+    final providerBatches = await Future.wait(
+      activeProviders.map((provider) => _searchProviderPages(
+        provider,
+        filter,
+        providerPageCount,
+      )),
     );
 
     final merged = <Article>[];
     final sourceNames = <String>[];
     final failures = <String>[];
-    var totalResults = 0;
-    var hasMore = false;
+    var providerHasMore = false;
 
-    for (final result in settled) {
-      sourceNames.add(result.providerName);
-      totalResults += result.totalResults;
-      hasMore = hasMore || result.hasMore;
-      if (result.errorMessage != null && result.articles.isEmpty) {
-        failures.add(result.providerName);
+    for (var i = 0; i < providerBatches.length; i++) {
+      final batch = providerBatches[i];
+      sourceNames.add(activeProviders[i].name);
+      for (final result in batch) {
+        providerHasMore = providerHasMore || result.hasMore;
+        if (result.errorMessage != null && result.articles.isEmpty) {
+          if (!failures.contains(result.providerName)) failures.add(result.providerName);
+        }
+        merged.addAll(result.articles);
       }
-      merged.addAll(result.articles);
     }
 
     final filtered = merged.where((article) {
@@ -83,22 +82,51 @@ class MultiProviderSearchService {
             : a.publishedAt.compareTo(b.publishedAt);
       });
 
-    final pageItems = results.take(filter.pageSize).toList();
+    final start = ((filter.page - 1) * filter.pageSize).clamp(0, results.length).toInt();
+    final end = (start + filter.pageSize).clamp(0, results.length).toInt();
+    final pageItems = results.sublist(start, end);
 
     final notice = 'Combined search across ${sourceNames.join(', ')}. '
-        '${results.length} unique matches returned from this search batch.'
+        '${results.length} unique matches loaded so far.'
         '${failures.isEmpty ? '' : ' Unavailable sources: ${failures.join(', ')}.'}';
 
     return ArticleSearchResult(
       articles: pageItems,
-      totalResults: totalResults > results.length ? totalResults : results.length,
-      hasMore: hasMore,
+      totalResults: results.length,
+      hasMore: end < results.length || providerHasMore,
       providerName: 'All Sources',
       coverageNotice: notice,
       errorMessage: pageItems.isEmpty && failures.length == activeProviders.length
           ? 'All search sources failed. Check your connection and try again.'
           : (failures.isEmpty ? null : 'Some sources could not be reached: ${failures.join(', ')}.'),
     );
+  }
+
+  Future<List<ArticleSearchResult>> _searchProviderPages(
+    ArticleSearchProvider provider,
+    ArticleSearchFilter filter,
+    int pageCount,
+  ) async {
+    final results = <ArticleSearchResult>[];
+    for (var page = 1; page <= pageCount; page++) {
+      try {
+        final result = await provider.search(
+          filter.copyWith(page: page, pageSize: 50),
+        ).timeout(const Duration(seconds: 18));
+        results.add(result);
+        if (!result.hasMore || (result.errorMessage != null && result.articles.isEmpty)) {
+          break;
+        }
+      } catch (error) {
+        results.add(ArticleSearchResult.empty(
+          providerName: provider.name,
+          coverageNotice: '${provider.name} could not be reached for this search.',
+          errorMessage: error.toString(),
+        ));
+        break;
+      }
+    }
+    return results;
   }
 
   String _identityKey(Article article) {
@@ -116,7 +144,7 @@ class MultiProviderSearchService {
         return '$host$path?${Uri(queryParameters: Map.fromEntries(sortedQuery)).query}';
       }
     } catch (_) {}
-    return article.title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+    return _normalizedTitle(article.title);
   }
 
   String _normalizedTitle(String title) =>
@@ -154,7 +182,6 @@ class MultiProviderSearchService {
       score += ((descriptionMatches / tokens.length) * 10).round();
     }
 
-    // Prefer records with useful context when relevance is otherwise comparable.
     score += _metadataQuality(article);
     return score;
   }
