@@ -154,18 +154,38 @@ class ArticleRepository {
   /// Fetches live articles for Live Articles screen.
   Future<List<Article>> getLiveArticles({String? categoryName, bool forceRefresh = false}) async {
     try {
-      final cat = categoryName != null
-          ? ArticleCategory.byName(categoryName)
-          : ArticleCategory.initialCategories[Random().nextInt(ArticleCategory.initialCategories.length)];
+      if (categoryName != null) {
+        final cat = ArticleCategory.byName(categoryName);
+        final articles = await _rssService.fetchArticlesForCategory(cat, maxArticles: 25);
+        await _dbService.saveArticles(articles);
+        return articles;
+      }
 
-      final articles = await _rssService.fetchArticlesForCategory(cat, maxArticles: 25);
-      await _dbService.saveArticles(articles);
-      return articles;
+      // "All" categories: Fetch live feeds across all categories concurrently
+      final futures = ArticleCategory.initialCategories.map((cat) {
+        return _rssService.fetchArticlesForCategory(cat, maxArticles: 5);
+      });
+      final results = await Future.wait(futures);
+      final combined = <Article>[];
+      final seenIds = <String>{};
+
+      for (final list in results) {
+        for (final article in list) {
+          if (seenIds.add(article.id)) {
+            combined.add(article);
+          }
+        }
+      }
+
+      // Sort globally newest first
+      combined.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+      await _dbService.saveArticles(combined);
+      return combined;
     } catch (e) {
       // Offline fallback: return cached live/recent articles
       return await _dbService.getCachedArticles(
         category: categoryName,
-        limit: 25,
+        limit: 30,
         orderByNewest: true,
       );
     }

@@ -92,5 +92,35 @@ void main() {
       expect(article.formattedPublishedDate, 'Aug 14, 2025');
       expect(article.formattedDiscoveredDate, contains('Nov 22, 2026'));
     });
+
+    test('getLiveArticles falls back to cached articles sorted by newest published date', () async {
+      final older = Article(
+        id: 'live-old',
+        title: 'Older Live Article',
+        description: 'Description 1',
+        url: 'https://example.com/old',
+        sourceName: 'Source 1',
+        publishedAt: DateTime(2026, 1, 1),
+        discoveredAt: DateTime(2026, 11, 22),
+        category: 'Science',
+      );
+      final newer = Article(
+        id: 'live-new',
+        title: 'Newer Live Article',
+        description: 'Description 2',
+        url: 'https://example.com/new',
+        sourceName: 'Source 2',
+        publishedAt: DateTime(2026, 11, 20),
+        discoveredAt: DateTime(2026, 11, 22),
+        category: 'Science',
+      );
+
+      await dbService.saveArticles([older, newer]);
+
+      final liveArticles = await repository.getLiveArticles(categoryName: 'Science');
+      expect(liveArticles.length, 2);
+      expect(liveArticles.first.id, 'live-new');
+      expect(liveArticles.last.id, 'live-old');
+    });
   });
 }
