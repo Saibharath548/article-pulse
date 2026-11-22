@@ -95,8 +95,8 @@ class GoogleNewsRssSearchProvider implements ArticleSearchProvider {
       articles.sort((a, b) => filter.sortByNewest
           ? b.publishedAt.compareTo(a.publishedAt)
           : a.publishedAt.compareTo(b.publishedAt));
-      final start = ((filter.page - 1) * filter.pageSize).clamp(0, articles.length);
-      final end = (start + filter.pageSize).clamp(0, articles.length);
+      final start = ((filter.page - 1) * filter.pageSize).clamp(0, articles.length).toInt();
+      final end = (start + filter.pageSize).clamp(0, articles.length).toInt();
       return ArticleSearchResult(
         articles: articles.sublist(start, end),
         totalResults: articles.length,
