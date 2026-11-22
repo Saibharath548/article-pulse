@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
+import 'package:intl/intl.dart';
 import '../../models/article.dart';
 import 'search_provider_interface.dart';
 
@@ -71,7 +72,7 @@ class GoogleNewsRssSearchProvider implements ArticleSearchProvider {
             .replaceAll(RegExp(r'<[^>]*>'), ' ')
             .replaceAll('&amp;', '&')
             .replaceAll('&quot;', '"')
-            .replaceAll(RegExp(r'\\s+'), ' ')
+            .replaceAll(RegExp(r'\s+'), ' ')
             .trim();
         final source = item.findElements('source').firstOrNull?.innerText.trim();
         final dateText = item.findElements('pubDate').firstOrNull?.innerText.trim() ?? '';
@@ -116,6 +117,14 @@ class GoogleNewsRssSearchProvider implements ArticleSearchProvider {
 
   DateTime? _parseRssDate(String value) {
     if (value.isEmpty) return null;
-    return DateTime.tryParse(value.replaceFirst(RegExp(r'^[A-Za-z]{3},\\s*'), ''));
+    try {
+      final normalized = value.replaceFirst(RegExp(r'^[A-Za-z]{3},\\s*'), '').replaceFirst(RegExp(r' GMT
+  }
+}
+), '');
+      return DateFormat('d MMM yyyy HH:mm:ss', 'en_US').parseUtc(normalized);
+    } catch (_) {
+      return null;
+    }
   }
 }
