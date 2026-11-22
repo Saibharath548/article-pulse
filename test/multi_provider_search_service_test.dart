@@ -60,6 +60,7 @@ void main() {
         (index) => _article(
           title: 'Result $index',
           url: 'https://example.com/$index',
+          publishedAt: DateTime(2025, 1, 1).add(Duration(days: index)),
         ),
       );
       final service = MultiProviderSearchService(
@@ -67,7 +68,7 @@ void main() {
       );
 
       final secondPage = await service.search(
-        const ArticleSearchFilter(query: 'result', page: 2, pageSize: 20),
+        const ArticleSearchFilter(query: 'result', page: 2, pageSize: 20, sortByNewest: false),
         includeGuardian: false,
       );
 
@@ -98,6 +99,7 @@ Article _article({
   required String url,
   String? author,
   String description = 'A useful article description.',
+  DateTime? publishedAt,
 }) {
   final now = DateTime(2025, 4, 10);
   return Article(
@@ -107,7 +109,7 @@ Article _article({
     url: url,
     author: author,
     sourceName: 'Test Publisher',
-    publishedAt: now,
+    publishedAt: publishedAt ?? now,
     discoveredAt: now,
     category: 'General Knowledge',
   );
