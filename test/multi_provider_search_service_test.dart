@@ -54,6 +54,28 @@ void main() {
       expect(result.coverageNotice, isNot(contains('The Guardian')));
     });
 
+    test('paginates the merged result list instead of dropping later-source results', () async {
+      final articles = List.generate(
+        30,
+        (index) => _article(
+          title: 'Result $index',
+          url: 'https://example.com/$index',
+        ),
+      );
+      final service = MultiProviderSearchService(
+        providers: [_FakeProvider('Paged archive', articles)],
+      );
+
+      final secondPage = await service.search(
+        const ArticleSearchFilter(query: 'result', page: 2, pageSize: 20),
+        includeGuardian: false,
+      );
+
+      expect(secondPage.articles.length, 10);
+      expect(secondPage.articles.first.title, 'Result 20');
+      expect(secondPage.hasMore, isFalse);
+    });
+
     test('keeps going when one provider throws', () async {
       final service = MultiProviderSearchService(providers: [
         _ThrowingProvider(),
