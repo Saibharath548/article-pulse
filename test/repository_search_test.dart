@@ -45,8 +45,12 @@ void main() {
       expect(filter.sortByNewest, isTrue);
     });
 
+    test('ArticleRepository exposes database service', () {
+      expect(repository.db, equals(dbService));
+    });
+
     test('Category definition contains all 11 required initial topics', () {
-      final categories = ArticleCategory.initialCategories;
+      const categories = ArticleCategory.initialCategories;
       expect(categories.length, 11);
 
       final names = categories.map((c) => c.name).toSet();
