@@ -59,11 +59,16 @@ class MultiProviderSearchService {
     }).toList();
 
     final deduplicated = <String, Article>{};
+    final titleIndex = <String, String>{};
     for (final article in filtered) {
       final key = _identityKey(article);
-      final existing = deduplicated[key];
+      final titleKey = _normalizedTitle(article.title);
+      final existingKey = deduplicated.containsKey(key) ? key : titleIndex[titleKey];
+      final existing = existingKey == null ? null : deduplicated[existingKey];
       if (existing == null || _metadataQuality(article) > _metadataQuality(existing)) {
+        if (existingKey != null && existingKey != key) deduplicated.remove(existingKey);
         deduplicated[key] = article;
+        titleIndex[titleKey] = key;
       }
     }
 
@@ -113,6 +118,9 @@ class MultiProviderSearchService {
     } catch (_) {}
     return article.title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
   }
+
+  String _normalizedTitle(String title) =>
+      title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
 
   int _metadataQuality(Article article) {
     var score = 0;
