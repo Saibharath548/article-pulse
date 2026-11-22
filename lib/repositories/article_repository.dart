@@ -196,7 +196,12 @@ class ArticleRepository {
   /// Searches all free archives by default, while preserving explicit provider selection.
   /// Results are merged, deduplicated, ranked, and cached without changing existing screens.
   Future<ArticleSearchResult> searchArticles(ArticleSearchFilter filter, {String? preferredProviderName}) async {
-    final hasGuardianKey = await _secureStorage.hasGuardianApiKey();
+    var hasGuardianKey = false;
+    try {
+      hasGuardianKey = await _secureStorage.hasGuardianApiKey();
+    } catch (_) {
+      // If secure storage is unavailable, continue with providers that need no key.
+    }
 
     // Keep the existing provider selector behavior for users who intentionally choose one source.
     if (preferredProviderName != null) {
@@ -204,6 +209,7 @@ class ArticleRepository {
         'The Guardian' => _guardianProvider,
         'Hacker News Search (Algolia)' => _algoliaProvider,
         'Crossref Open Works' => _crossrefProvider,
+        'Google News Web Search' => GoogleNewsRssSearchProvider(),
         _ => null,
       };
 
