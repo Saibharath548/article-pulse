@@ -78,9 +78,7 @@ class MultiProviderSearchService {
             : a.publishedAt.compareTo(b.publishedAt);
       });
 
-    final start = ((filter.page - 1) * filter.pageSize).clamp(0, results.length);
-    final end = (start + filter.pageSize).clamp(0, results.length);
-    final pageItems = results.sublist(start, end);
+    final pageItems = results.take(filter.pageSize).toList();
 
     final notice = 'Combined search across ${sourceNames.join(', ')}. '
         '${results.length} unique matches returned from this search batch.'
@@ -89,7 +87,7 @@ class MultiProviderSearchService {
     return ArticleSearchResult(
       articles: pageItems,
       totalResults: totalResults > results.length ? totalResults : results.length,
-      hasMore: end < results.length || hasMore,
+      hasMore: hasMore,
       providerName: 'All Sources',
       coverageNotice: notice,
       errorMessage: pageItems.isEmpty && failures.length == activeProviders.length
