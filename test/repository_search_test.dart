@@ -49,7 +49,7 @@ void main() {
       expect(repository.db, equals(dbService));
     });
 
-    test('Category definition contains all 11 required initial topics', () {
+    test('Category definition contains all 12 required initial topics', () {
       const categories = ArticleCategory.initialCategories;
       expect(categories.length, 12);
 
