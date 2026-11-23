@@ -99,7 +99,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (update == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Article Pulse is up to date.')),
+          const SnackBar(content: Text('No newer APK release is available.')),
         );
       } else {
         await showAppUpdateDialog(context, update);
