@@ -1,14 +1,21 @@
-name: Build Release APK
+name: Build and Publish Article Pulse APK
 
 on:
   push:
     branches:
       - main
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
-    name: Build Android Release APK
+    name: Analyze, Test, and Build Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -28,11 +35,6 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Verify Environment
-        run: |
-          flutter doctor -v
-          flutter --version
-
       - name: Install Dependencies
         run: flutter pub get
 
@@ -42,13 +44,53 @@ jobs:
       - name: Run Unit & Integration Tests
         run: flutter test
 
-      - name: Build Release APK
-        run: flutter build apk --release --android-skip-build-dependency-validation
+      - name: Read App Version
+        id: app_version
+        shell: bash
+        run: |
+          APP_VERSION=$(sed -n 's/^version: *//p' pubspec.yaml | cut -d+ -f1)
+          echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Release APK Artifact
+      - name: Configure Persistent Android Signing
+        id: signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Persistent Android signing secrets are missing. The APK will use a temporary CI debug key; no GitHub Release will be published because that APK cannot be guaranteed to update an installed copy."
+            echo "## APK signing is not configured" >> "$GITHUB_STEP_SUMMARY"
+            echo "The APK artifact below is debug-signed for temporary testing only. Add the four ANDROID_* repository secrets to enable stable in-app updates and direct GitHub Release APK downloads." >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=app/upload-keystore.jks\n' \
+              "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "$ANDROID_KEY_ALIAS" > android/key.properties
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build Release APK
+        run: flutter build apk --release --build-number "${{ github.run_number }}" --android-skip-build-dependency-validation
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: article-pulse-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish Direct APK on GitHub Releases
+        if: github.event_name != 'pull_request' && steps.signing.outputs.configured == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.app_version.outputs.version }}+${{ github.run_number }}
+          name: Article Pulse v${{ steps.app_version.outputs.version }}+${{ github.run_number }}
+          files: build/app/outputs/flutter-apk/app-release.apk
+          prerelease: ${{ github.ref != 'refs/heads/main' }}
+          make_latest: ${{ github.ref == 'refs/heads/main' }}
+          overwrite_files: true
+          generate_release_notes: true
