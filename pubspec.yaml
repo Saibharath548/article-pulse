@@ -2,7 +2,7 @@ name: article_pulse
 description: "Article Pulse – AI-Powered Article Discovery App"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.1.0+1
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -32,6 +32,8 @@ dependencies:
   google_fonts: ^6.2.1
   cupertino_icons: ^1.0.8
   crypto: ^3.0.3
+  package_info_plus: ^8.3.1
+  open_filex: ^5.0.0
 
 dev_dependencies:
   flutter_test:
