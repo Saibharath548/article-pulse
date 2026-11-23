@@ -85,7 +85,7 @@ jobs:
 
       - name: Publish Direct APK on GitHub Releases
         if: github.event_name != 'pull_request' && steps.signing.outputs.configured == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.app_version.outputs.version }}+${{ github.run_number }}
           name: Article Pulse v${{ steps.app_version.outputs.version }}+${{ github.run_number }}
