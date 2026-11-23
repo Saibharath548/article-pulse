@@ -49,12 +49,13 @@ void main() {
       expect(repository.db, equals(dbService));
     });
 
-    test('Category definition contains all 11 required initial topics', () {
+    test('Category definition contains all 12 required initial topics', () {
       const categories = ArticleCategory.initialCategories;
-      expect(categories.length, 11);
+      expect(categories.length, 12);
 
       final names = categories.map((c) => c.name).toSet();
       expect(names.contains('Game Development'), isTrue);
+      expect(names.contains('Geopolitics'), isTrue);
       expect(names.contains('Technology'), isTrue);
       expect(names.contains('Science'), isTrue);
       expect(names.contains('Psychology'), isTrue);

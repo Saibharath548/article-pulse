@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../repositories/article_repository.dart';
 import '../services/providers/guardian_rate_limiter.dart';
+import '../services/app_update_service.dart';
+import '../widgets/app_update_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,6 +19,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _hasSavedKey = false;
   int _remainingRequests = 500;
   bool _isSaving = false;
+  bool _autoCheckUpdates = true;
+  bool _isCheckingUpdates = false;
 
   @override
   void initState() {
@@ -35,6 +39,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final key = await repo.secureStorage.getGuardianApiKey();
     final limiter = GuardianRateLimiter();
     final remaining = await limiter.getRemainingRequestsToday();
+    final autoCheckUpdates = await AppUpdateService.getAutoCheckEnabled();
 
     if (mounted) {
       setState(() {
@@ -43,6 +48,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _hasSavedKey = true;
         }
         _remainingRequests = remaining;
+        _autoCheckUpdates = autoCheckUpdates;
       });
     }
   }
@@ -77,6 +83,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Non-bookmarked article cache cleared.')),
       );
+    }
+  }
+
+  Future<void> _setAutoCheckUpdates(bool enabled) async {
+    setState(() => _autoCheckUpdates = enabled);
+    await AppUpdateService.setAutoCheckEnabled(enabled);
+  }
+
+  Future<void> _checkForUpdates() async {
+    setState(() => _isCheckingUpdates = true);
+    try {
+      final update = await AppUpdateService().checkForUpdate(force: true);
+      if (!mounted) return;
+
+      if (update == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No newer APK release is available.')),
+        );
+      } else {
+        await showAppUpdateDialog(context, update);
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not check for updates: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCheckingUpdates = false);
     }
   }
 
@@ -226,6 +261,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 24),
 
+          // Section: App Updates
+          _buildSectionHeader('App Updates'),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Column(
+              children: [
+                SwitchListTile(
+                  secondary: const Icon(Icons.system_update_outlined),
+                  title: const Text('Check for updates automatically'),
+                  subtitle: const Text('Check GitHub Releases when Article Pulse opens.'),
+                  value: _autoCheckUpdates,
+                  onChanged: _setAutoCheckUpdates,
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.download_for_offline_outlined),
+                  title: const Text('Check now'),
+                  subtitle: const Text('Look for the latest APK on GitHub.'),
+                  trailing: _isCheckingUpdates
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.chevron_right),
+                  onTap: _isCheckingUpdates ? null : _checkForUpdates,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
           // Section: About
           _buildSectionHeader('About Article Pulse'),
           Card(
@@ -236,7 +303,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Article Pulse v1.0.0',
+                    'Article Pulse v1.1.0',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                   ),
                   const SizedBox(height: 6),

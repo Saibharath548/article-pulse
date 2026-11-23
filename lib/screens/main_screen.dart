@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/app_update_service.dart';
+import '../widgets/app_update_dialog.dart';
 import 'bookmarks_history_screen.dart';
 import 'category_screen.dart';
 import 'home_screen.dart';
@@ -14,6 +16,23 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdatesOnLaunch());
+  }
+
+  Future<void> _checkForUpdatesOnLaunch() async {
+    try {
+      if (!await AppUpdateService.getAutoCheckEnabled()) return;
+      final update = await AppUpdateService().checkForUpdate();
+      if (!mounted || update == null) return;
+      await showAppUpdateDialog(context, update);
+    } catch (_) {
+      // Update checks are best-effort and must never block app startup.
+    }
+  }
 
   final List<Widget> _screens = const [
     HomeScreen(),

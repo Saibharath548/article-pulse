@@ -143,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Curated mix of fresh pulses, timeless archive discoveries (1–2 yrs ago), and random sparks across 11 subjects.',
+                        'Curated mix of fresh pulses, timeless archive discoveries (1–2 yrs ago), and random sparks across 12 subjects.',
                         style: theme.textTheme.bodySmall,
                       ),
                     ],
